@@ -33,6 +33,11 @@ public class HeroController : MonoBehaviour {
 	private float _jump;
 	private bool _facingRight;
 	private bool _isGrounded;
+	private AudioSource[] _audioSources;
+	private AudioSource _jumpSound;
+	private AudioSource _coinSound;
+	private AudioSource _deathSound;
+	private AudioSource _enemyDeath;
 
 	//PUBLIC INSTANCE VARIABLES
 	public VelocityRange velocityRange;
@@ -40,8 +45,12 @@ public class HeroController : MonoBehaviour {
 	public float jumpForce;
 	public Transform groundCheck;
 	public Transform cameraObject;
+	public GameObject bridgeObject;
+	public GameObject[] boxObjects;
 	public GameObject[] floatObjects;
 	public Vector3[] floatPositions;
+	public GameController gameController;
+
 
 	// Use this for initialization
 	void Start () {
@@ -59,10 +68,16 @@ public class HeroController : MonoBehaviour {
 		this._facingRight = true;
 		this.floatPositions = new Vector3[3];
 
+		//audio sources
+		this._audioSources = gameObject.GetComponents<AudioSource>();
+		this._jumpSound = this._audioSources [0];
+		this._coinSound = this._audioSources [1];
+		this._deathSound = this._audioSources [2];
+		this._enemyDeath = this._audioSources [3];
 		this.getPosition ();
+		this._spawn (-350, 550, 0);
 	}
-	
-	// Update is called once per frame
+
 	void FixedUpdate () {
 
 		Vector3 currentPosition = new Vector3 (this._transform.position.x+150f, this._transform.position.y+0f, -1f);
@@ -80,7 +95,8 @@ public class HeroController : MonoBehaviour {
 
 		//if the hero is on the ground
 		if (this._isGrounded) {
-			
+
+			//gets a number between -1 to 1 for horizontal and vertical axes movement
 			this._move = Input.GetAxis ("Horizontal");
 			this._jump = Input.GetAxis ("Vertical");
 
@@ -102,17 +118,19 @@ public class HeroController : MonoBehaviour {
 					this._flip ();
 				}
 				this._animator.SetInteger ("AnimState", 1);
-			}else {
+			}
+			else {
 				this._animator.SetInteger ("AnimState", 0);
 			}
 
 			if (this._jump > 0) {
 				if(absVelocityY < this.velocityRange.maxVelocity){
-					//this._jumpSound.Play ();
+					this._jumpSound.Play ();
 					forceY = this.jumpForce;
 				}
 				this._animator.SetInteger ("AnimState", 2); 
 			}
+			//if the hero is not on the ground like jumping or falling down
 		} else {
 
 			//gets a number between -1 to 1 for horizontal and vertical axes movement
@@ -140,39 +158,40 @@ public class HeroController : MonoBehaviour {
 			//call the hero_jumb animation
 			this._animator.SetInteger ("AnimState", 2);
 		}
+		//applying the force to move the hero
 		this._rigidBody2D.AddForce (new Vector2 (forceX, forceY));
 	}
 
 	void OnCollisionEnter2D(Collision2D other) {
 		if(other.gameObject.CompareTag("death")) {
-			//this.gameController.LivesValue--;
-			//this._deathSound.Play ();
+			this.gameController.LivesValue--;
+			this._deathSound.Play ();
 			this._playerDeath ();
 		}
 
 		if (other.gameObject.CompareTag ("enemy")) {
-			//this.gameController.LivesValue--;
-			//this._deathSound.Play ();
-			//this._playerDeath ();
+			this.gameController.LivesValue--;
+			this._deathSound.Play ();
+			this._playerDeath ();
 		}
 	}
 
 	void OnTriggerEnter2D(Collider2D other) {
 		
 		if (other.gameObject.CompareTag ("coin")) {
-			//this._coinSound.Play ();
+			this._coinSound.Play ();
 			Destroy (other.gameObject);
-			//this.gameController.ScoreValue += 100;
+			this.gameController.ScoreValue += 100;
 		}
 
 		if (other.gameObject.CompareTag ("enemy")) {
 			Destroy (other.gameObject);
-			//this._enemyDeath.Play ();
+			this._enemyDeath.Play ();
 		}
 
 		//when the player reaches the final door
-		if (other.gameObject.CompareTag ("door")) {
-			//gameController.finishGame ();
+		if (other.gameObject.CompareTag ("door")) {			
+			gameController.finishGame ();
 		}
 	}
 
@@ -191,11 +210,11 @@ public class HeroController : MonoBehaviour {
 	//method that takes care of the player death (fall or enemy)
 	private void _playerDeath(){
 		if (this._transform.position.x < 1400) {
+			this._spawnBridge ();
+			this._spawnBoxes ();
 			this._spawn (-366, 600, 0);
 		} 
-		if( this._transform.position.x > 1400f && this._transform.position.x < 3355) {
-			//this._spawnBridge ();
-			Debug.Log("spawn");
+		if( this._transform.position.x > 1400f && this._transform.position.x < 3355) {			
 			this._spawn (1520, 600, 0);
 		}
 		if (this._transform.position.x > 3355) {
@@ -209,25 +228,46 @@ public class HeroController : MonoBehaviour {
 
 	private void _spawnFloats(){
 		floatObjects = GameObject.FindGameObjectsWithTag ("float");
-		foreach(GameObject floatObject in floatObjects){
+		int i = 0;
+		foreach(GameObject floatObject in floatObjects){			
 			floatObject.gameObject.SetActive (false);
 			floatObject.transform.rotation = Quaternion.Euler (0,0,0); 
-			floatObject.transform.position = new Vector3 (this.floatPositions[0].x, this.floatPositions[0].y, 0 );
+			floatObject.transform.position = new Vector3 (this.floatPositions[i].x, this.floatPositions[i].y, 0 );
 			Instantiate (floatObject, floatObject.transform.position, floatObject.transform.rotation);
 			floatObject.gameObject.SetActive (true);
+			i++;
 		}
 	}
 
+	//to restore the bridge back to the normal position
+	private void _spawnBridge(){
+		bridgeObject = GameObject.FindGameObjectWithTag ("bridge");	
+		bridgeObject.gameObject.SetActive (false);
+		bridgeObject.transform.position = new Vector3 (1178f, 470f, 0);
+		bridgeObject.transform.rotation = Quaternion.Euler (0,0,0);
+		Instantiate (bridgeObject, bridgeObject.transform.position, bridgeObject.transform.rotation);
+		bridgeObject.gameObject.SetActive (true);
+	}
+
+	private void _spawnBoxes(){
+		boxObjects = GameObject.FindGameObjectsWithTag ("goldenbox");
+		foreach (GameObject boxObject in boxObjects) {
+			boxObject.gameObject.SetActive (false);
+			boxObject.transform.rotation = Quaternion.Euler (0,0,0);
+			boxObject.transform.position = new Vector3 (971f, 350f, 0);
+			Instantiate (boxObject, boxObject.transform.position, boxObject.transform.rotation);
+			boxObject.gameObject.SetActive (true);
+		} 
+	} 
+
+	//to get the inital position of float objects
 	private void getPosition(){
 		floatObjects = GameObject.FindGameObjectsWithTag ("float");
 		int i = 0;
 		foreach (GameObject floatObject in floatObjects) {			
-			//this.floatPositions [i] = floatObject.GetComponent<Transform> ().position;
-			//Debug.Log(floatObject.GetComponent<Transform> ().position);
-			this.floatPositions [i].x = 3289f;//floatObject.GetComponent<Transform> ().position.x;
-			this.floatPositions [i].y = 359.72499f;//floatObject.GetComponent<Transform> ().position.y;
+			this.floatPositions [i].x = floatObject.GetComponent<Transform> ().position.x; //3428
+			this.floatPositions [i].y = floatObject.GetComponent<Transform> ().position.y; //258
 			i++;
-				//this._transform = gameObject.GetComponent<Transform> ();
 		}
 	}
 
