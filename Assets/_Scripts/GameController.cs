@@ -95,7 +95,7 @@ public class GameController : MonoBehaviour {
 	}
 
 	//CALLED WHEN THE RESTART BUTTON IS CLICKED. WILL RESTART THE GAME
-	public void RestartButtonClick(){		
+	public void RestartButtonClick(){				
 		SceneManager.LoadScene(SceneManager.GetActiveScene().name);
 	}
 }
